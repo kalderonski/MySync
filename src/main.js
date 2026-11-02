@@ -11,6 +11,7 @@ app.commandLine.appendSwitch('disable-http-cache');
 app.commandLine.appendSwitch('disable-gpu-process-crash-limit');
 
 let mainWindow = null;
+let cancelCurrentSync = false;
 
 function getProfilesPath() {
   return path.join(app.getPath('userData'), 'mysync-profiles.json');
@@ -99,9 +100,19 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('sync:execute', async (event, params) => {
-    return executeSync(params, (progress) => {
-      event.sender.send('sync:progress', progress);
-    });
+    cancelCurrentSync = false;
+    return executeSync(
+      params,
+      (progress) => {
+        event.sender.send('sync:progress', progress);
+      },
+      () => cancelCurrentSync
+    );
+  });
+
+  ipcMain.handle('sync:cancel', async () => {
+    cancelCurrentSync = true;
+    return true;
   });
 
   ipcMain.handle('shell:openPath', async (_event, targetPath) => {

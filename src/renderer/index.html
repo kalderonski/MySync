@@ -482,6 +482,94 @@
     </div>
   </dialog>
 
+  <!-- Live Synchronization Progress & Final Summary Modal Dialog -->
+  <dialog id="syncProgressDialog" closedby="none" aria-labelledby="syncProgressDialogTitle" class="modal-dialog modal-wide">
+    <div class="dialog-content">
+      <header class="dialog-header">
+        <h2 id="syncProgressDialogTitle">⚡ Synchronizing Folders...</h2>
+        <button type="button" id="closeSyncProgressBtn" class="btn-close-dialog" aria-label="Close synchronization dialog" hidden>✕</button>
+      </header>
+      <div class="dialog-body">
+        <!-- Live Progress Section -->
+        <div id="syncLiveStatusCard" class="sync-live-card">
+          <div class="sync-live-top">
+            <span id="syncPhaseBadge" class="status-badge status-only_left">IN PROGRESS</span>
+            <span id="syncCounterLabel" class="sync-counter-label">File 0 of 0</span>
+            <span id="syncSpeedLabel" class="sync-speed-label">0.0 MB/s • Elapsed: 0s</span>
+          </div>
+
+          <div class="sync-current-file-box">
+            <span class="sync-file-caption">Current File:</span>
+            <code id="syncCurrentFilePath" class="sync-file-code">Preparing synchronization...</code>
+          </div>
+
+          <!-- Overall Progress Bar -->
+          <div class="progress-group">
+            <div class="progress-label-row">
+              <span>Overall Progress</span>
+              <span id="syncOverallBytesLabel">0 B / 0 B (0%)</span>
+            </div>
+            <div class="progress-track">
+              <div id="syncOverallProgressBar" class="progress-fill" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Current File Progress Bar (especially helpful for multi-GB files like 33 GB .bak) -->
+          <div class="progress-group">
+            <div class="progress-label-row">
+              <span>Current File Transfer</span>
+              <span id="syncCurrentFileBytesLabel">0 B / 0 B (0%)</span>
+            </div>
+            <div class="progress-track progress-track-sm">
+              <div id="syncCurrentFileProgressBar" class="progress-fill progress-fill-cyan" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Final Summary Metrics Grid (Displayed upon completion) -->
+        <div id="syncFinalSummarySection" class="sync-final-summary" hidden>
+          <div id="syncFinalBanner" class="confirm-summary-banner"></div>
+          <div class="summary-stats-grid">
+            <div class="summary-stat-card">
+              <span class="stat-card-value" id="sumCopiedLR">0</span>
+              <span class="stat-card-label">Copied Left ➔ Right</span>
+            </div>
+            <div class="summary-stat-card">
+              <span class="stat-card-value" id="sumCopiedRL">0</span>
+              <span class="stat-card-label">Copied Right ➔ Left</span>
+            </div>
+            <div class="summary-stat-card">
+              <span class="stat-card-value" id="sumDeleted">0</span>
+              <span class="stat-card-label">Files Deleted</span>
+            </div>
+            <div class="summary-stat-card">
+              <span class="stat-card-value" id="sumBytes">0 B</span>
+              <span class="stat-card-label">Total Transferred</span>
+            </div>
+            <div class="summary-stat-card">
+              <span class="stat-card-value" id="sumDuration">0.0s</span>
+              <span class="stat-card-label">Elapsed Time</span>
+            </div>
+            <div class="summary-stat-card">
+              <span class="stat-card-value" id="sumErrors">0</span>
+              <span class="stat-card-label">Errors</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Rolling Operation Feed inside the Modal -->
+        <div class="sync-live-feed-wrap">
+          <div class="sync-feed-header">Live Operation Log</div>
+          <div id="syncModalLiveLog" class="sync-modal-live-log" role="log" aria-live="polite"></div>
+        </div>
+      </div>
+      <footer class="dialog-footer">
+        <button type="button" id="cancelSyncExecutionBtn" class="btn-modern btn-danger-solid">⏹ Stop / Cancel Sync</button>
+        <button type="button" id="doneSyncExecutionBtn" class="btn-modern btn-primary" hidden>✓ Done — Close Summary</button>
+      </footer>
+    </div>
+  </dialog>
+
   <!-- Right-Click File Context Menu Popover (implements modern-web-guidance `menu`) -->
   <div id="fileContextMenuPopover" popover="auto" class="context-menu-popover">
     <div class="context-menu-header" id="ctxMenuHeaderPath">file.txt</div>

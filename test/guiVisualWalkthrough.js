@@ -182,6 +182,7 @@ async function runFullGUIWalkthrough() {
   await wc.executeJavaScript(`document.getElementById('executeConfirmedSyncBtn').click();`);
   await sleep(1000);
   await captureWindow(win, 'gui_09_post_sync_activity_log.png');
+  await wc.executeJavaScript(`document.getElementById('doneSyncExecutionBtn').click();`);
 
   const postLeftToRight = await wc.executeJavaScript(`({
     onlyLeft: document.getElementById('countOnlyLeft').textContent,
@@ -205,6 +206,7 @@ async function runFullGUIWalkthrough() {
     document.getElementById('executeConfirmedSyncBtn').click();
   `);
   await sleep(1000);
+  await wc.executeJavaScript(`document.getElementById('doneSyncExecutionBtn').click();`);
   await captureWindow(win, 'gui_10_fully_synchronized_58_identical.png');
 
   const finalCounts = await wc.executeJavaScript(`({

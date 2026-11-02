@@ -1530,3 +1530,173 @@ tbody tr.context-active-row td,
 tbody tr.context-active-row th {
   background-color: var(--brand-glow) !important;
 }
+
+/* ============================================================================
+ * 8. Live Synchronization Progress & Final Summary Modal Styles
+ * ============================================================================ */
+[hidden] {
+  display: none !important;
+}
+
+.sync-live-card {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sync-live-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sync-counter-label {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.sync-speed-label {
+  margin-left: auto;
+  font-family: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.sync-current-file-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.sync-file-caption {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.sync-file-code {
+  font-family: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  font-size: 12px;
+  color: var(--brand-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.progress-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.progress-label-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.progress-track {
+  width: 100%;
+  height: 11px;
+  background: var(--bg-surface-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-track-sm {
+  height: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--brand-primary) 0%, #3b82f6 100%);
+  border-radius: 999px;
+  transition: width 0.14s ease;
+}
+
+.progress-fill-cyan {
+  background: linear-gradient(90deg, #06b6d4 0%, #10b981 100%);
+}
+
+.sync-final-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.summary-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+
+.summary-stat-card {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 3px;
+}
+
+.stat-card-value {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-card-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.sync-live-feed-wrap {
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  overflow: hidden;
+  background: var(--bg-surface-1);
+}
+
+.sync-feed-header {
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--bg-surface-2);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.sync-modal-live-log {
+  height: 155px;
+  overflow-y: auto;
+  padding: 8px 12px;
+  font-family: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  font-size: 11.5px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

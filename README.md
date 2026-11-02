@@ -43,3 +43,4 @@ npm test
 # Build Windows NSIS Setup Installer & Portable .exe (outputs to dist/)
 npm run dist
 ```
+

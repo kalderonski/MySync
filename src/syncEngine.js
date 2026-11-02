@@ -348,48 +348,180 @@ async function pruneEmptyParents(filePath, rootDir) {
 }
 
 /**
- * Executes the selected file operations and emits progress callbacks.
+ * Streams a file copy with live byte-level progress, speed (MB/s), and cancellation support.
  */
-async function executeSync({ leftDir, rightDir, operations }, onProgress = () => {}) {
+async function copyFileWithProgress(srcPath, destPath, fileSize, onChunkProgress, shouldCancel) {
+  await fsp.mkdir(path.dirname(destPath), { recursive: true });
+
+  // For small files (< 2 MB), use fast atomic fsp.copyFile directly
+  if (fileSize < 2 * 1024 * 1024) {
+    await fsp.copyFile(srcPath, destPath);
+    onChunkProgress(fileSize, fileSize);
+    return;
+  }
+
+  return new Promise((resolve, reject) => {
+    const readStream = fs.createReadStream(srcPath, { highWaterMark: 4 * 1024 * 1024 }); // 4 MB chunks
+    const writeStream = fs.createWriteStream(destPath);
+    let copied = 0;
+    let lastEmitMs = 0;
+
+    function cleanupOnError(err) {
+      readStream.destroy();
+      writeStream.destroy();
+      fs.unlink(destPath, () => reject(err));
+    }
+
+    readStream.on('data', (chunk) => {
+      if (shouldCancel && shouldCancel()) {
+        cleanupOnError(new Error('Synchronization cancelled by user'));
+        return;
+      }
+      copied += chunk.length;
+      const now = Date.now();
+      if (now - lastEmitMs >= 180 || copied >= fileSize) {
+        lastEmitMs = now;
+        onChunkProgress(copied, fileSize);
+      }
+    });
+
+    readStream.on('error', cleanupOnError);
+    writeStream.on('error', cleanupOnError);
+
+    writeStream.on('finish', () => {
+      onChunkProgress(fileSize, fileSize);
+      resolve();
+    });
+
+    readStream.pipe(writeStream);
+  });
+}
+
+/**
+ * Executes the selected file operations and emits live byte & file progress callbacks.
+ */
+async function executeSync({ leftDir, rightDir, operations }, onProgress = () => {}, shouldCancel = () => false) {
+  const startTimeMs = Date.now();
   const activeOps = operations.filter((op) => op.checked && op.action && op.action !== 'skip');
+
+  // Compute total bytes planned across all copy operations
+  let totalBytesPlanned = 0;
+  for (const op of activeOps) {
+    if (op.action === 'copy_to_right' && op.left && typeof op.left.size === 'number') {
+      totalBytesPlanned += op.left.size;
+    } else if (op.action === 'copy_to_left' && op.right && typeof op.right.size === 'number') {
+      totalBytesPlanned += op.right.size;
+    }
+  }
+
   const results = {
     totalPlanned: activeOps.length,
+    totalBytesPlanned,
     copiedToRight: 0,
     copiedToLeft: 0,
     deletedRight: 0,
     deletedLeft: 0,
     bytesTransferred: 0,
+    durationMs: 0,
+    cancelled: false,
     errors: [],
     logs: [],
   };
 
+  let completedBytesPriorFiles = 0;
+
   for (let i = 0; i < activeOps.length; i++) {
+    if (shouldCancel()) {
+      results.cancelled = true;
+      const cancelMsg = `Synchronization cancelled by user after ${i} of ${activeOps.length} operations.`;
+      results.logs.push({ level: 'warn', message: cancelMsg });
+      onProgress({
+        phase: 'cancelled',
+        index: i,
+        total: activeOps.length,
+        bytesTransferred: results.bytesTransferred,
+        totalBytesPlanned,
+        level: 'warn',
+        message: cancelMsg,
+      });
+      break;
+    }
+
     const op = activeOps[i];
     const relNative = op.relPath.split('/').join(path.sep);
     const leftFull = path.join(leftDir, relNative);
     const rightFull = path.join(rightDir, relNative);
 
     try {
-      if (op.action === 'copy_to_right') {
-        await fsp.mkdir(path.dirname(rightFull), { recursive: true });
-        const stat = await fsp.stat(leftFull);
-        await fsp.copyFile(leftFull, rightFull);
-        await fsp.utimes(rightFull, stat.atime, stat.mtime);
-        results.copiedToRight++;
-        results.bytesTransferred += stat.size;
-        const msg = `Copied Left -> Right: ${op.relPath} (${stat.size} bytes)`;
-        results.logs.push({ level: 'success', message: msg, relPath: op.relPath });
-        onProgress({ index: i + 1, total: activeOps.length, level: 'success', message: msg });
-      } else if (op.action === 'copy_to_left') {
-        await fsp.mkdir(path.dirname(leftFull), { recursive: true });
-        const stat = await fsp.stat(rightFull);
-        await fsp.copyFile(rightFull, leftFull);
-        await fsp.utimes(leftFull, stat.atime, stat.mtime);
-        results.copiedToLeft++;
-        results.bytesTransferred += stat.size;
-        const msg = `Copied Right -> Left: ${op.relPath} (${stat.size} bytes)`;
-        results.logs.push({ level: 'success', message: msg, relPath: op.relPath });
-        onProgress({ index: i + 1, total: activeOps.length, level: 'success', message: msg });
+      if (op.action === 'copy_to_right' || op.action === 'copy_to_left') {
+        const isLR = op.action === 'copy_to_right';
+        const srcFull = isLR ? leftFull : rightFull;
+        const dstFull = isLR ? rightFull : leftFull;
+        const dirLabel = isLR ? 'Left ➔ Right' : 'Right ➔ Left';
+
+        const stat = await fsp.stat(srcFull);
+        const fileSize = stat.size;
+
+        // Emit "starting file" event Immediately so the user sees large files (e.g. 33 GB .bak) before copying finishes!
+        onProgress({
+          phase: 'file-start',
+          index: i + 1,
+          total: activeOps.length,
+          relPath: op.relPath,
+          action: op.action,
+          fileBytesCopied: 0,
+          fileSize,
+          bytesTransferred: completedBytesPriorFiles,
+          totalBytesPlanned,
+          elapsedMs: Date.now() - startTimeMs,
+          level: 'info',
+          message: `Copying (${dirLabel}): ${op.relPath} (${fileSize} bytes)...`,
+        });
+
+        await copyFileWithProgress(
+          srcFull,
+          dstFull,
+          fileSize,
+          (fileBytesCopied) => {
+            onProgress({
+              phase: 'file-chunk',
+              index: i + 1,
+              total: activeOps.length,
+              relPath: op.relPath,
+              action: op.action,
+              fileBytesCopied,
+              fileSize,
+              bytesTransferred: completedBytesPriorFiles + fileBytesCopied,
+              totalBytesPlanned,
+              elapsedMs: Date.now() - startTimeMs,
+            });
+          },
+          shouldCancel
+        );
+
+        await fsp.utimes(dstFull, stat.atime, stat.mtime);
+
+        completedBytesPriorFiles += fileSize;
+        results.bytesTransferred = completedBytesPriorFiles;
+        if (isLR) results.copiedToRight++;
+        else results.copiedToLeft++;
+
+        const msg = `Copied ${dirLabel}: ${op.relPath} (${fileSize} bytes)`;
+        results.logs.push({ level: 'success', message: msg, relPath: op.relPath, size: fileSize });
+        onProgress({
+          phase: 'file-done',
+          index: i + 1,
+          total: activeOps.length,
+          relPath: op.relPath,
+          action: op.action,
+          fileBytesCopied: fileSize,
+          fileSize,
+          bytesTransferred: completedBytesPriorFiles,
+          totalBytesPlanned,
+          elapsedMs: Date.now() - startTimeMs,
+          level: 'success',
+          message: msg,
+        });
       } else if (op.action === 'delete_right') {
         if (fs.existsSync(rightFull)) {
           await fsp.unlink(rightFull);
@@ -398,7 +530,18 @@ async function executeSync({ leftDir, rightDir, operations }, onProgress = () =>
         results.deletedRight++;
         const msg = `Deleted on Right: ${op.relPath}`;
         results.logs.push({ level: 'warn', message: msg, relPath: op.relPath });
-        onProgress({ index: i + 1, total: activeOps.length, level: 'warn', message: msg });
+        onProgress({
+          phase: 'file-done',
+          index: i + 1,
+          total: activeOps.length,
+          relPath: op.relPath,
+          action: op.action,
+          bytesTransferred: completedBytesPriorFiles,
+          totalBytesPlanned,
+          elapsedMs: Date.now() - startTimeMs,
+          level: 'warn',
+          message: msg,
+        });
       } else if (op.action === 'delete_left') {
         if (fs.existsSync(leftFull)) {
           await fsp.unlink(leftFull);
@@ -407,16 +550,43 @@ async function executeSync({ leftDir, rightDir, operations }, onProgress = () =>
         results.deletedLeft++;
         const msg = `Deleted on Left: ${op.relPath}`;
         results.logs.push({ level: 'warn', message: msg, relPath: op.relPath });
-        onProgress({ index: i + 1, total: activeOps.length, level: 'warn', message: msg });
+        onProgress({
+          phase: 'file-done',
+          index: i + 1,
+          total: activeOps.length,
+          relPath: op.relPath,
+          action: op.action,
+          bytesTransferred: completedBytesPriorFiles,
+          totalBytesPlanned,
+          elapsedMs: Date.now() - startTimeMs,
+          level: 'warn',
+          message: msg,
+        });
       }
     } catch (err) {
+      if (shouldCancel()) {
+        results.cancelled = true;
+        break;
+      }
       const errMsg = `Failed (${op.action}) on "${op.relPath}": ${err.message}`;
       results.errors.push({ relPath: op.relPath, action: op.action, error: err.message });
       results.logs.push({ level: 'error', message: errMsg, relPath: op.relPath });
-      onProgress({ index: i + 1, total: activeOps.length, level: 'error', message: errMsg });
+      onProgress({
+        phase: 'file-error',
+        index: i + 1,
+        total: activeOps.length,
+        relPath: op.relPath,
+        action: op.action,
+        bytesTransferred: completedBytesPriorFiles,
+        totalBytesPlanned,
+        elapsedMs: Date.now() - startTimeMs,
+        level: 'error',
+        message: errMsg,
+      });
     }
   }
 
+  results.durationMs = Date.now() - startTimeMs;
   return results;
 }
 

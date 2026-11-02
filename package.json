@@ -1,7 +1,7 @@
 {
   "name": "mysync",
   "productName": "MySync Pro Studio",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Directional & Two-Way Folder Synchronization Studio for Windows",
   "author": "MySync",
   "main": "src/main.js",

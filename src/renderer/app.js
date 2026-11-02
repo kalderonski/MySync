@@ -765,16 +765,123 @@ function openConfirmSyncModal() {
   dialog.showModal();
 }
 
+function appendModalLiveLog(level, message) {
+  const box = document.getElementById('syncModalLiveLog');
+  if (!box) return;
+  const entry = document.createElement('div');
+  entry.className = `log-entry level-${level}`;
+  const icons = { info: '⏳', success: '✅', warn: '⚠️', error: '❌' };
+  const timeStr = new Date().toLocaleTimeString();
+  entry.textContent = `[${timeStr}] ${icons[level] || 'ℹ️'} ${message}`;
+  box.appendChild(entry);
+  while (box.children.length > 250) {
+    box.removeChild(box.firstChild);
+  }
+  box.scrollTop = box.scrollHeight;
+}
+
+function updateLiveSyncModalProgress(progress) {
+  const totalFiles = progress.total || 1;
+  const currentIdx = progress.index || 0;
+  document.getElementById('syncCounterLabel').textContent = `File ${currentIdx.toLocaleString()} of ${totalFiles.toLocaleString()}`;
+
+  if (progress.relPath) {
+    const actionPrefix =
+      progress.action === 'copy_to_right'
+        ? '[Copy L ➔ R] '
+        : progress.action === 'copy_to_left'
+        ? '[Copy R ➔ L] '
+        : progress.action === 'delete_right'
+        ? '[Delete Right] '
+        : progress.action === 'delete_left'
+        ? '[Delete Left] '
+        : '';
+    document.getElementById('syncCurrentFilePath').textContent = `${actionPrefix}${progress.relPath}`;
+  }
+
+  const elapsedSec = Math.max(0.1, (progress.elapsedMs || 100) / 1000);
+  const bytesDone = progress.bytesTransferred || 0;
+  const totalBytes = progress.totalBytesPlanned || 0;
+  const speedBps = bytesDone / elapsedSec;
+  document.getElementById('syncSpeedLabel').textContent = `${formatBytes(speedBps)}/s • Elapsed: ${elapsedSec.toFixed(1)}s`;
+
+  // Overall progress bar (by bytes if totalBytes > 0, otherwise by file count)
+  const overallPct =
+    totalBytes > 0
+      ? Math.min(100, Math.round((bytesDone / totalBytes) * 100))
+      : Math.min(100, Math.round((currentIdx / totalFiles) * 100));
+
+  document.getElementById('syncOverallProgressBar').style.width = `${overallPct}%`;
+  document.getElementById('syncOverallBytesLabel').textContent =
+    totalBytes > 0
+      ? `${formatBytes(bytesDone)} / ${formatBytes(totalBytes)} (${overallPct}%)`
+      : `${currentIdx} / ${totalFiles} files (${overallPct}%)`;
+
+  // Current file progress bar
+  if (typeof progress.fileSize === 'number' && progress.fileSize > 0) {
+    const fileCopied = progress.fileBytesCopied || 0;
+    const filePct = Math.min(100, Math.round((fileCopied / progress.fileSize) * 100));
+    document.getElementById('syncCurrentFileProgressBar').style.width = `${filePct}%`;
+    document.getElementById('syncCurrentFileBytesLabel').textContent = `${formatBytes(fileCopied)} / ${formatBytes(progress.fileSize)} (${filePct}%)`;
+  } else {
+    document.getElementById('syncCurrentFileProgressBar').style.width = '100%';
+    document.getElementById('syncCurrentFileBytesLabel').textContent = 'Complete';
+  }
+
+  // Update main toolbar status strip too
+  document.getElementById('syncStatusBanner').textContent =
+    `Syncing [${currentIdx}/${totalFiles}] (${overallPct}%): ${progress.relPath || ''}`;
+
+  // Append to logs on file-start, file-done, file-error, or cancelled (not every 180ms chunk)
+  if (
+    progress.phase === 'file-start' ||
+    progress.phase === 'file-done' ||
+    progress.phase === 'file-error' ||
+    progress.phase === 'cancelled'
+  ) {
+    appendModalLiveLog(progress.level || 'info', `[${currentIdx}/${totalFiles}] ${progress.message}`);
+    if (
+      progress.phase !== 'file-start' &&
+      (currentIdx <= 200 || currentIdx % 50 === 0 || currentIdx === totalFiles || progress.level === 'error')
+    ) {
+      appendLog(progress.level || 'info', `[${currentIdx}/${totalFiles}] ${progress.message}`);
+    }
+  }
+}
+
 async function executeConfirmedSync() {
-  const dialog = document.getElementById('confirmSyncDialog');
-  dialog.close();
+  const confirmDialog = document.getElementById('confirmSyncDialog');
+  if (confirmDialog.open) confirmDialog.close();
 
   const job = getActiveJob();
   const analysis = getActiveAnalysis();
   if (!job || !analysis) return;
 
+  // Prepare & open the Live Sync Progress Modal
+  const progressDialog = document.getElementById('syncProgressDialog');
+  document.getElementById('syncProgressDialogTitle').textContent = `⚡ Synchronizing "${job.name}"...`;
+  document.getElementById('closeSyncProgressBtn').hidden = true;
+  document.getElementById('cancelSyncExecutionBtn').hidden = false;
+  document.getElementById('cancelSyncExecutionBtn').disabled = false;
+  document.getElementById('doneSyncExecutionBtn').hidden = true;
+  document.getElementById('syncFinalSummarySection').hidden = true;
+  document.getElementById('syncModalLiveLog').innerHTML = '';
+
+  const phaseBadge = document.getElementById('syncPhaseBadge');
+  phaseBadge.className = 'status-badge status-only_left';
+  phaseBadge.textContent = 'SYNCING IN PROGRESS';
+
+  document.getElementById('syncOverallProgressBar').style.width = '0%';
+  document.getElementById('syncCurrentFileProgressBar').style.width = '0%';
+  document.getElementById('syncCurrentFilePath').textContent = 'Starting synchronization...';
+
+  if (!progressDialog.open) {
+    progressDialog.showModal();
+  }
+
   switchLogTab('activity');
   appendLog('info', `Executing synchronization for "${job.name}"...`);
+  appendModalLiveLog('info', `Started synchronization for "${job.name}" (${DIRECTION_META[job.direction].label})`);
   document.getElementById('synchronizeBtn').disabled = true;
 
   try {
@@ -784,14 +891,56 @@ async function executeConfirmedSync() {
       operations: analysis.items,
     });
 
-    appendLog(
-      res.errors.length ? 'warn' : 'success',
-      `Synchronization finished: Copied Left->Right: ${res.copiedToRight}, Copied Right->Left: ${res.copiedToLeft}, Deleted Right: ${res.deletedRight}, Deleted Left: ${res.deletedLeft}, Bytes: ${formatBytes(res.bytesTransferred)}, Errors: ${res.errors.length}`
-    );
+    const elapsedSec = ((res.durationMs || 0) / 1000).toFixed(1);
+    const totalDeleted = (res.deletedRight || 0) + (res.deletedLeft || 0);
+
+    // Transition modal to Final Summary view
+    document.getElementById('closeSyncProgressBtn').hidden = false;
+    document.getElementById('cancelSyncExecutionBtn').hidden = true;
+    document.getElementById('doneSyncExecutionBtn').hidden = false;
+    document.getElementById('syncFinalSummarySection').hidden = false;
+
+    if (res.cancelled) {
+      document.getElementById('syncProgressDialogTitle').textContent = `⏹ Synchronization Cancelled`;
+      phaseBadge.className = 'status-badge status-newer_left';
+      phaseBadge.textContent = 'CANCELLED BY USER';
+      document.getElementById('syncFinalBanner').innerHTML =
+        `<strong>Stopped early:</strong> Synchronization was cancelled by the user after ${elapsedSec}s.`;
+    } else if (res.errors.length > 0) {
+      document.getElementById('syncProgressDialogTitle').textContent = `⚠️ Synchronization Completed with ${res.errors.length} Error(s)`;
+      phaseBadge.className = 'status-badge status-newer_right';
+      phaseBadge.textContent = 'COMPLETED WITH ERRORS';
+      document.getElementById('syncFinalBanner').innerHTML =
+        `<strong>Finished with warnings:</strong> ${res.copiedToRight + res.copiedToLeft} file(s) copied, ${totalDeleted} deleted, ${res.errors.length} error(s) in ${elapsedSec}s.`;
+    } else {
+      document.getElementById('syncProgressDialogTitle').textContent = `✅ Synchronization Complete!`;
+      phaseBadge.className = 'status-badge status-identical';
+      phaseBadge.textContent = '100% COMPLETED';
+      document.getElementById('syncOverallProgressBar').style.width = '100%';
+      document.getElementById('syncCurrentFileProgressBar').style.width = '100%';
+      document.getElementById('syncCurrentFilePath').textContent = 'All planned file operations completed successfully.';
+      document.getElementById('syncFinalBanner').innerHTML =
+        `<strong>Success!</strong> Transferred <strong>${formatBytes(res.bytesTransferred)}</strong> across <strong>${res.copiedToRight + res.copiedToLeft}</strong> file(s) and deleted <strong>${totalDeleted}</strong> file(s) in <strong>${elapsedSec}s</strong>.`;
+    }
+
+    document.getElementById('sumCopiedLR').textContent = res.copiedToRight.toLocaleString();
+    document.getElementById('sumCopiedRL').textContent = res.copiedToLeft.toLocaleString();
+    document.getElementById('sumDeleted').textContent = totalDeleted.toLocaleString();
+    document.getElementById('sumBytes').textContent = formatBytes(res.bytesTransferred);
+    document.getElementById('sumDuration').textContent = `${elapsedSec}s`;
+    document.getElementById('sumErrors').textContent = res.errors.length.toLocaleString();
+
+    const summaryMsg = `SUMMARY — Copied Left➔Right: ${res.copiedToRight} | Copied Right➔Left: ${res.copiedToLeft} | Deleted: ${totalDeleted} | Total Data: ${formatBytes(res.bytesTransferred)} | Duration: ${elapsedSec}s | Errors: ${res.errors.length}`;
+    appendLog(res.errors.length ? 'warn' : 'success', summaryMsg);
+    appendModalLiveLog(res.errors.length ? 'warn' : 'success', summaryMsg);
 
     await runAnalysis();
   } catch (err) {
     appendLog('error', `Synchronization failed: ${err.message}`);
+    appendModalLiveLog('error', `Synchronization failed: ${err.message}`);
+    document.getElementById('closeSyncProgressBtn').hidden = false;
+    document.getElementById('cancelSyncExecutionBtn').hidden = true;
+    document.getElementById('doneSyncExecutionBtn').hidden = false;
   }
 }
 
@@ -1171,9 +1320,7 @@ async function initApp() {
   appendLog('info', `Application started, profile: "${activeJob ? activeJob.name : 'default profile'}"`);
 
   mysyncAPI.onSyncProgress((progress) => {
-    if (progress.index <= 200 || progress.index % 100 === 0 || progress.index === progress.total) {
-      appendLog(progress.level || 'info', `[${progress.index}/${progress.total}] ${progress.message}`);
-    }
+    updateLiveSyncModalProgress(progress);
   });
 
   // Browse Left & Right
@@ -1439,6 +1586,16 @@ async function initApp() {
   const confirmDialog = document.getElementById('confirmSyncDialog');
   document.getElementById('closeConfirmSyncBtn').addEventListener('click', () => confirmDialog.close());
   document.getElementById('cancelConfirmSyncBtn').addEventListener('click', () => confirmDialog.close());
+
+  // Live Sync Progress & Final Summary Dialog buttons
+  const syncProgressDialog = document.getElementById('syncProgressDialog');
+  document.getElementById('closeSyncProgressBtn').addEventListener('click', () => syncProgressDialog.close());
+  document.getElementById('doneSyncExecutionBtn').addEventListener('click', () => syncProgressDialog.close());
+  document.getElementById('cancelSyncExecutionBtn').addEventListener('click', async () => {
+    document.getElementById('cancelSyncExecutionBtn').disabled = true;
+    appendModalLiveLog('warn', 'Stopping synchronization after current chunk...');
+    await mysyncAPI.cancelSync();
+  });
 
   // File Preview Dialog close buttons
   const previewDialog = document.getElementById('filePreviewDialog');
