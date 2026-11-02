@@ -1,0 +1,45 @@
+{
+  "name": "mysync",
+  "productName": "MySync Pro Studio",
+  "version": "1.0.0",
+  "description": "Directional & Two-Way Folder Synchronization Studio for Windows",
+  "author": "MySync",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node start.js",
+    "test": "node test/syncEngine.test.js",
+    "test:ftemp": "node test/setupAndTestFTemp.js",
+    "dist": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.mysync.prostudio",
+    "productName": "MySync Pro Studio",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MySync Pro Studio"
+    },
+    "portable": {
+      "artifactName": "MySync-Portable-${version}.exe"
+    }
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^35.0.0",
+    "electron-builder": "^26.8.1"
+  }
+}
