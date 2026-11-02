@@ -2,6 +2,12 @@
 
 A modern, high-contrast directional and two-way folder synchronization desktop application for Windows built with Electron.
 
+## 📥 Download Windows Installer (v1.1.0)
+
+- **[Download Windows Setup Installer (`MySync.Pro.Studio.Setup.1.1.0.exe` — 91.5 MB)](https://github.com/kalderonski/MySync/releases/download/v1.1.0/MySync.Pro.Studio.Setup.1.1.0.exe)** *(Recommended — installs Desktop & Start Menu shortcuts)*
+- **[Download Portable Executable (`MySync-Portable-1.1.0.exe` — 84.0 MB)](https://github.com/kalderonski/MySync/releases/download/v1.1.0/MySync-Portable-1.1.0.exe)** *(No installation required)*
+- **[View All GitHub Releases](https://github.com/kalderonski/MySync/releases)**
+
 ## Key Features
 
 - **Directional & Two-Way Folder Sync**:
