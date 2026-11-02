@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('mysyncAPI', {
+  platform: process.platform,
   selectFolder: (defaultPath) => ipcRenderer.invoke('dialog:selectFolder', defaultPath),
   loadProfiles: () => ipcRenderer.invoke('profiles:load'),
   saveProfiles: (data) => ipcRenderer.invoke('profiles:save', data),

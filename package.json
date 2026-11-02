@@ -2,14 +2,15 @@
   "name": "mysync",
   "productName": "MySync Pro Studio",
   "version": "1.1.0",
-  "description": "Directional & Two-Way Folder Synchronization Studio for Windows",
+  "description": "Directional & Two-Way Folder Synchronization Studio for Windows & macOS",
   "author": "MySync",
   "main": "src/main.js",
   "scripts": {
     "start": "node start.js",
     "test": "node test/syncEngine.test.js",
     "test:ftemp": "node test/setupAndTestFTemp.js",
-    "dist": "electron-builder --win"
+    "dist": "electron-builder --win",
+    "dist:mac": "electron-builder --mac"
   },
   "build": {
     "appId": "com.mysync.prostudio",
@@ -35,6 +36,27 @@
     },
     "portable": {
       "artifactName": "MySync-Portable-${version}.exe"
+    },
+    "mac": {
+      "category": "public.app-category.utilities",
+      "identity": null,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "MySync-Pro-Studio-${version}-mac-${arch}.${ext}"
     }
   },
   "dependencies": {},

@@ -1,0 +1,43 @@
+name: Build & Publish macOS Installers
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts=false
+
+      - name: Run unit tests on macOS
+        run: npm test
+
+      - name: Build macOS .dmg and .zip (Apple Silicon arm64 & Intel x64)
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --mac --publish never
+
+      - name: List generated macOS installers
+        run: ls -lh dist/
+
+      - name: Upload macOS installers to v1.1.0 GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload v1.1.0 dist/*.dmg dist/*.zip --clobber

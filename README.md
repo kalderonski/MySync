@@ -2,11 +2,16 @@
 
 A modern, high-contrast directional and two-way folder synchronization desktop application for Windows built with Electron.
 
-## 📥 Download Windows Installer (v1.1.0)
+## 📥 Download Installers (v1.1.0 — Windows & macOS)
 
+### Windows (`x64`)
 - **[Download Windows Setup Installer (`MySync.Pro.Studio.Setup.1.1.0.exe` — 91.5 MB)](https://github.com/kalderonski/MySync/releases/download/v1.1.0/MySync.Pro.Studio.Setup.1.1.0.exe)** *(Recommended — installs Desktop & Start Menu shortcuts)*
 - **[Download Portable Executable (`MySync-Portable-1.1.0.exe` — 84.0 MB)](https://github.com/kalderonski/MySync/releases/download/v1.1.0/MySync-Portable-1.1.0.exe)** *(No installation required)*
-- **[View All GitHub Releases](https://github.com/kalderonski/MySync/releases)**
+
+### macOS (Apple Silicon `M1/M2/M3/M4` & Intel `x64`)
+- **[Download macOS Apple Silicon DMG (`MySync-Pro-Studio-1.1.0-mac-arm64.dmg`)](https://github.com/kalderonski/MySync/releases/download/v1.1.0/MySync-Pro-Studio-1.1.0-mac-arm64.dmg)**
+- **[Download macOS Intel DMG (`MySync-Pro-Studio-1.1.0-mac-x64.dmg`)](https://github.com/kalderonski/MySync/releases/download/v1.1.0/MySync-Pro-Studio-1.1.0-mac-x64.dmg)**
+- **[View All GitHub Releases & ZIPs](https://github.com/kalderonski/MySync/releases/tag/v1.1.0)**
 
 ## Key Features
 

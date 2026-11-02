@@ -1308,6 +1308,20 @@ async function initApp() {
   setupDialogLightDismissFallbacks();
   setupMenuFocusgroupFallbacks();
 
+  // Adapt labels for macOS Finder / Trash vs Windows Explorer / Recycle Bin
+  const isMac = mysyncAPI.platform === 'darwin';
+  if (isMac) {
+    document.getElementById('openLeftBtn').textContent = 'Open in Finder ↗';
+    document.getElementById('openRightBtn').textContent = 'Open in Finder ↗';
+    document.querySelectorAll('#ctxRevealLeft .hint, #ctxRevealRight .hint').forEach((el) => {
+      el.textContent = 'Finder';
+    });
+    document.getElementById('ctxTrashLeft').textContent = '🗑️ Move Left File to Trash...';
+    document.getElementById('ctxTrashRight').textContent = '🗑️ Move Right File to Trash...';
+    document.getElementById('confirmTrashTitle').textContent = 'Move File to Trash';
+    document.getElementById('executeConfirmTrashBtn').textContent = '🗑️ Move to Trash';
+  }
+
   const saved = await mysyncAPI.loadProfiles();
   state.jobs = saved.jobs;
   state.activeJobId = saved.activeJobId || saved.jobs[0].id;

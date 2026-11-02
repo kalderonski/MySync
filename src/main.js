@@ -18,13 +18,13 @@ function getProfilesPath() {
 }
 
 const DEFAULT_PROFILES = {
-  activeJobId: 'job-ftemp-test',
+  activeJobId: 'job-1',
   jobs: [
     {
-      id: 'job-ftemp-test',
-      name: 'F:\\temp Smart Test Suite',
-      leftDir: 'F:\\temp\\SyncTest_Left',
-      rightDir: 'F:\\temp\\SyncTest_Right',
+      id: 'job-1',
+      name: process.platform === 'win32' ? 'F:\\temp Smart Test Suite' : 'New Job 1',
+      leftDir: process.platform === 'win32' && fs.existsSync('F:\\temp\\SyncTest_Left') ? 'F:\\temp\\SyncTest_Left' : '',
+      rightDir: process.platform === 'win32' && fs.existsSync('F:\\temp\\SyncTest_Right') ? 'F:\\temp\\SyncTest_Right' : '',
       direction: 'left_to_right',
       propagateDeletions: false,
       excludePatterns: ['.git', 'node_modules', '*.tmp', 'Thumbs.db', '.DS_Store'],
